@@ -1,0 +1,30 @@
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example
+
+# Backend Java / Maven
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/src/main/resources/application.properties
+backend/src/main/resources/application-*.properties
+backend/src/main/resources/application*.backup*
+backend/src/main/resources/application*.bak*
+backend/src/main/resources/application*.before-*
+backend/pom.xml.bak*
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Copias de seguridad
+*.bak
+*.bak-*
+*.backup
+*.backup-*
+*.before-*
+
+# Sistema y editores
+.DS_Store
+.idea/
+.vscode/
