@@ -294,6 +294,8 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
   const canManageRows =
     (module === 'productos' && ['ADMIN', 'GERENTE', 'ALMACEN'].includes(session.role)) ||
     (module === 'proveedores' && ['ADMIN', 'GERENTE'].includes(session.role))
+  const canCreateUsers = module === 'usuarios' && session.role === 'ADMIN'
+
   const canCreateDocument =
     (module === 'compras' && ['ADMIN', 'GERENTE', 'ALMACEN'].includes(session.role)) ||
     (module === 'ventas' && ['ADMIN', 'GERENTE', 'VENDEDOR'].includes(session.role))
@@ -315,6 +317,86 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
   useEffect(() => { void load() }, [load])
 
   async function saveRow(row?: Record<string, unknown>) {
+    if (module === 'usuarios') {
+      if (session.role !== 'ADMIN' || row !== undefined) return
+
+      const result = await Swal.fire({
+        title: 'Crear usuario',
+        html: `<div class="text-start">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="erp-username">Nombre de usuario *</label>
+            <input class="form-control" id="erp-username" maxlength="80" autocomplete="off" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="erp-password">Contraseña *</label>
+            <input class="form-control" id="erp-password" type="password" minlength="12" maxlength="72" autocomplete="new-password" required>
+            <small class="text-muted">Entre 12 y 72 caracteres.</small>
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold" for="erp-role">Rol *</label>
+            <select class="form-select" id="erp-role" required>
+              <option value="VENDEDOR">Vendedor</option>
+              <option value="ALMACEN">Almacén</option>
+              <option value="CONTADOR">Contador</option>
+              <option value="GERENTE">Gerente</option>
+              <option value="ADMIN">Administrador</option>
+            </select>
+          </div>
+          <small class="text-muted">La contraseña se enviará al backend para su cifrado.</small>
+        </div>`,
+        width: 540,
+        showCancelButton: true,
+        confirmButtonText: 'Crear usuario',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#3156d3',
+        focusConfirm: false,
+        preConfirm: () => {
+          const username = (document.getElementById('erp-username') as HTMLInputElement | null)?.value.trim() ?? ''
+          const password = (document.getElementById('erp-password') as HTMLInputElement | null)?.value ?? ''
+          const role = (document.getElementById('erp-role') as HTMLSelectElement | null)?.value ?? ''
+
+          if (!username || username.length > 80) {
+            Swal.showValidationMessage('El usuario es obligatorio y admite máximo 80 caracteres.')
+            return false
+          }
+          if (password.trim().length === 0 || password.length < 12 || password.length > 72) {
+            Swal.showValidationMessage('La contraseña debe tener entre 12 y 72 caracteres y no estar vacía.')
+            return false
+          }
+          if (!['ADMIN', 'GERENTE', 'VENDEDOR', 'ALMACEN', 'CONTADOR'].includes(role)) {
+            Swal.showValidationMessage('Selecciona un rol válido.')
+            return false
+          }
+          return { username, password, role }
+        },
+      })
+
+      if (!result.isConfirmed || !result.value) return
+
+      try {
+        await api(config.path, {
+          method: 'POST',
+          body: JSON.stringify(result.value),
+        }, session.token)
+
+        await Swal.fire({
+          icon: 'success',
+          title: 'Usuario creado',
+          text: 'La cuenta fue creada correctamente.',
+          timer: 1800,
+          showConfirmButton: false,
+        })
+        await load()
+      } catch (e) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'No se pudo crear el usuario',
+          text: e instanceof Error ? e.message : 'Error inesperado.',
+        })
+      }
+      return
+    }
+
     const editing = row !== undefined
     const product = module === 'productos'
     if (!product && module !== 'proveedores') return
@@ -620,6 +702,11 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
           {canManageRows && (
             <button className="btn btn-primary btn-sm" onClick={() => void saveRow()}>
               + Nuevo {module === 'productos' ? 'producto' : 'proveedor'}
+            </button>
+          )}
+          {canCreateUsers && (
+            <button className="btn btn-primary btn-sm" onClick={() => void saveRow()}>
+              + Nuevo usuario
             </button>
           )}
           {canCreateDocument && (
