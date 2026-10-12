@@ -6,9 +6,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -23,6 +25,9 @@ class UserAuthorizationIntegrationTest {
 
     @Autowired
     private JwtService jwtService;
+
+    @MockitoSpyBean
+    private UserRepository userRepository;
 
     @MockitoBean
     private UserService userService;
@@ -41,6 +46,8 @@ class UserAuthorizationIntegrationTest {
                 Role.VENDEDOR
         );
 
+        when(userRepository.findByUsername(seller.getUsername()))
+                .thenReturn(Optional.of(seller));
         String token = jwtService.generateToken(seller);
 
         mockMvc.perform(get("/api/admin/users")
@@ -56,6 +63,8 @@ class UserAuthorizationIntegrationTest {
                 Role.ADMIN
         );
 
+        when(userRepository.findByUsername(admin.getUsername()))
+                .thenReturn(Optional.of(admin));
         String token = jwtService.generateToken(admin);
         when(userService.findAll()).thenReturn(List.of());
 
@@ -63,4 +72,23 @@ class UserAuthorizationIntegrationTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void inactiveAdminTokenReturns401() throws Exception {
+        AppUser admin = new AppUser(
+                "admin-inactivo",
+                "password-no-utilizada",
+                Role.ADMIN
+        );
+        admin.setActivo(false);
+
+        when(userRepository.findByUsername(admin.getUsername()))
+                .thenReturn(Optional.of(admin));
+        String token = jwtService.generateToken(admin);
+
+        mockMvc.perform(get("/api/admin/users")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
 }

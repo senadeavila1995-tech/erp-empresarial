@@ -26,6 +26,9 @@ public class AppUser implements UserDetails {
     @Column(nullable = false, length = 20)
     private Role role;
 
+    @Column(name = "activo", nullable = false)
+    private boolean activo = true;
+
     protected AppUser() {}
 
     public AppUser(String username, String password, Role role) {
@@ -52,6 +55,14 @@ public class AppUser implements UserDetails {
         return role;
     }
 
+    public boolean isActivo() {
+        return activo;
+    }
+
+    public void setActivo(boolean activo) {
+        this.activo = activo;
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
@@ -60,5 +71,5 @@ public class AppUser implements UserDetails {
     @Override public boolean isAccountNonExpired() { return true; }
     @Override public boolean isAccountNonLocked() { return true; }
     @Override public boolean isCredentialsNonExpired() { return true; }
-    @Override public boolean isEnabled() { return true; }
+    @Override public boolean isEnabled() { return activo; }
 }

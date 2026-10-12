@@ -48,4 +48,16 @@ public class UserService {
 
         return UserResponse.from(repository.save(user));
     }
+
+    @Transactional
+    public UserResponse setActive(Long id, boolean activo) {
+        AppUser user = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Usuario no encontrado"
+                ));
+
+        user.setActivo(activo);
+        return UserResponse.from(repository.save(user));
+    }
 }

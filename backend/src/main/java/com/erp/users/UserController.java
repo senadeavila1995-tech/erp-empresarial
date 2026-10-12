@@ -27,4 +27,11 @@ public class UserController {
             @Valid @RequestBody UserCreateRequest request) {
         return userService.create(request);
     }
+
+    @PatchMapping("/{id}/status")
+    public UserResponse setActive(
+            @PathVariable Long id,
+            @Valid @RequestBody UserStatusRequest request) {
+        return userService.setActive(id, request.activo());
+    }
 }

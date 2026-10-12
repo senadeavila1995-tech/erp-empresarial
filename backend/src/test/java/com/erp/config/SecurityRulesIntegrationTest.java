@@ -1,6 +1,7 @@
 package com.erp.config;
 
 import com.erp.auth.JwtService;
+import com.erp.users.UserRepository;
 import com.erp.users.AppUser;
 import com.erp.users.Role;
 import org.junit.jupiter.api.Test;
@@ -8,9 +9,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -27,6 +30,9 @@ class SecurityRulesIntegrationTest {
     @Autowired
     private JwtService jwtService;
 
+    @MockitoSpyBean
+    private UserRepository userRepository;
+
     @MockitoBean
     private com.erp.purchases.CompraService compraService;
 
@@ -34,8 +40,9 @@ class SecurityRulesIntegrationTest {
     private com.erp.sales.VentaService ventaService;
 
     private String token(String username, Role role) {
-        return jwtService.generateToken(
-                new AppUser(username, "password-no-utilizada", role));
+        AppUser user = new AppUser(username, "password-no-utilizada", role);
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(user));
+        return jwtService.generateToken(user);
     }
 
     @Test

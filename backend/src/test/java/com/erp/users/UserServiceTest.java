@@ -95,4 +95,40 @@ class UserServiceTest {
 
         verify(repository).findAll();
     }
+
+    @Test
+    void setActiveDeactivatesAndReactivatesUser() {
+        AppUser user = new AppUser(
+                "vendedor01", "hash", Role.VENDEDOR);
+
+        when(repository.findById(7L)).thenReturn(java.util.Optional.of(user));
+        when(repository.save(any(AppUser.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserResponse deactivated = userService.setActive(7L, false);
+
+        assertFalse(user.isEnabled());
+        assertFalse(deactivated.activo());
+
+        UserResponse reactivated = userService.setActive(7L, true);
+
+        assertTrue(user.isEnabled());
+        assertTrue(reactivated.activo());
+        verify(repository, times(2)).save(user);
+    }
+
+    @Test
+    void setActiveReturnsNotFoundForUnknownUser() {
+        when(repository.findById(999L))
+                .thenReturn(java.util.Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> userService.setActive(999L, false)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(repository, never()).save(any(AppUser.class));
+    }
+
 }

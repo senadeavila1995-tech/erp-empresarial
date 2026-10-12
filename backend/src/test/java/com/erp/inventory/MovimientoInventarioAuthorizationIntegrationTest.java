@@ -1,6 +1,7 @@
 package com.erp.inventory;
 
 import com.erp.auth.JwtService;
+import com.erp.users.UserRepository;
 import com.erp.users.AppUser;
 import com.erp.users.Role;
 import org.junit.jupiter.api.Test;
@@ -9,11 +10,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -27,12 +32,16 @@ class MovimientoInventarioAuthorizationIntegrationTest {
     @Autowired
     private JwtService jwtService;
 
+    @MockitoSpyBean
+    private UserRepository userRepository;
+
     @MockitoBean
     private MovimientoInventarioService service;
 
     private String token(String username, Role role) {
-        return jwtService.generateToken(
-                new AppUser(username, "password-no-utilizada", role));
+        AppUser user = new AppUser(username, "password-no-utilizada", role);
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(user));
+        return jwtService.generateToken(user);
     }
 
     private org.springframework.test.web.servlet.ResultActions registrar(

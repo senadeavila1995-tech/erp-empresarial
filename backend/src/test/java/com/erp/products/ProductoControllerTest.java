@@ -1,6 +1,7 @@
 package com.erp.products;
 
 import com.erp.auth.JwtService;
+import com.erp.users.UserRepository;
 import com.erp.users.AppUser;
 import com.erp.users.Role;
 import org.junit.jupiter.api.Test;
@@ -10,11 +11,13 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -32,6 +35,9 @@ class ProductoControllerTest {
     @Autowired
     private JwtService jwtService;
 
+    @MockitoSpyBean
+    private UserRepository userRepository;
+
     @MockitoBean
     private ProductoService productoService;
 
@@ -41,6 +47,8 @@ class ProductoControllerTest {
                 "password-no-utilizada",
                 role
         );
+        when(userRepository.findByUsername(user.getUsername()))
+                .thenReturn(Optional.of(user));
         return jwtService.generateToken(user);
     }
 
