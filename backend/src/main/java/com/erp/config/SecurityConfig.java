@@ -94,6 +94,24 @@ public class SecurityConfig {
                         .hasAnyRole("ADMIN", "GERENTE", "VENDEDOR", "CONTADOR")
                     .requestMatchers(HttpMethod.POST, "/api/sales", "/api/sales/**")
                         .hasAnyRole("ADMIN", "GERENTE", "VENDEDOR")
+                    // Categorías: consulta para todos los roles operativos.
+                    .requestMatchers(HttpMethod.GET, "/api/categories", "/api/categories/**")
+                        .hasAnyRole("ADMIN", "GERENTE", "ALMACEN", "VENDEDOR", "CONTADOR")
+                    .requestMatchers(HttpMethod.POST, "/api/categories", "/api/categories/**")
+                        .hasAnyRole("ADMIN", "GERENTE", "ALMACEN")
+                    .requestMatchers(HttpMethod.PUT, "/api/categories", "/api/categories/**")
+                        .hasAnyRole("ADMIN", "GERENTE", "ALMACEN")
+                    .requestMatchers(HttpMethod.PATCH, "/api/categories", "/api/categories/**")
+                        .hasAnyRole("ADMIN", "GERENTE", "ALMACEN")
+                    // Clientes: consulta y gestión para administración y ventas.
+                    .requestMatchers(HttpMethod.GET, "/api/customers", "/api/customers/**")
+                        .hasAnyRole("ADMIN", "GERENTE", "VENDEDOR")
+                    .requestMatchers(HttpMethod.POST, "/api/customers", "/api/customers/**")
+                        .hasAnyRole("ADMIN", "GERENTE", "VENDEDOR")
+                    .requestMatchers(HttpMethod.PUT, "/api/customers", "/api/customers/**")
+                        .hasAnyRole("ADMIN", "GERENTE", "VENDEDOR")
+                    .requestMatchers(HttpMethod.PATCH, "/api/customers", "/api/customers/**")
+                        .hasAnyRole("ADMIN", "GERENTE", "VENDEDOR")
                     .anyRequest().denyAll())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

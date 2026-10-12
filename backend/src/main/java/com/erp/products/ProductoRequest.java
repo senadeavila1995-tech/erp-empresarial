@@ -30,6 +30,15 @@ public record ProductoRequest(
         Integer stockActual,
 
         @NotNull @Min(0)
-        Integer stockMinimo
+        Integer stockMinimo,
+
+        Long categoriaId
 ) {
+    public ProductoRequest(
+            String sku, String nombre, String descripcion,
+            BigDecimal precioCompra, BigDecimal precioVenta,
+            Integer stockActual, Integer stockMinimo) {
+        this(sku, nombre, descripcion, precioCompra, precioVenta,
+                stockActual, stockMinimo, null);
+    }
 }

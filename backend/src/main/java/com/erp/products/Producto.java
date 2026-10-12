@@ -35,6 +35,10 @@ public class Producto {
     @Column(nullable = false)
     private Boolean activo;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "categoria_id")
+    private com.erp.categories.Categoria categoria;
+
     protected Producto() {
     }
 
@@ -85,4 +89,8 @@ public class Producto {
     public Integer getStockActual() { return stockActual; }
     public Integer getStockMinimo() { return stockMinimo; }
     public Boolean getActivo() { return activo; }
+    public com.erp.categories.Categoria getCategoria() { return categoria; }
+    public void asignarCategoria(com.erp.categories.Categoria categoria) {
+        this.categoria = categoria;
+    }
 }

@@ -15,6 +15,8 @@ const SESSION_KEY = 'erp_session'
 const navigation = [
   { label: 'Dashboard', path: '/', icon: '▦', roles: ['ADMIN', 'GERENTE', 'ALMACEN', 'VENDEDOR', 'CONTADOR'] },
   { label: 'Productos', path: '/productos', icon: '▤', roles: ['ADMIN', 'GERENTE', 'ALMACEN', 'VENDEDOR', 'CONTADOR'] },
+  { label: 'Categorías', path: '/categorias', icon: '▧', roles: ['ADMIN', 'GERENTE', 'ALMACEN', 'VENDEDOR', 'CONTADOR'] },
+  { label: 'Clientes', path: '/clientes', icon: '♙', roles: ['ADMIN', 'GERENTE', 'VENDEDOR'] },
   { label: 'Inventario', path: '/inventario', icon: '▥', roles: ['ADMIN', 'GERENTE', 'ALMACEN'] },
   { label: 'Proveedores', path: '/proveedores', icon: '♙', roles: ['ADMIN', 'GERENTE', 'ALMACEN', 'CONTADOR'] },
   { label: 'Compras', path: '/compras', icon: '↙', roles: ['ADMIN', 'GERENTE', 'ALMACEN', 'CONTADOR'] },
@@ -244,11 +246,17 @@ function Dashboard({ session }: { session: Session }) {
   </>
 }
 
-type ModuleKey = 'productos' | 'proveedores' | 'compras' | 'ventas' | 'inventario' | 'usuarios'
+type ModuleKey = 'productos' | 'categorias' | 'clientes' | 'proveedores' | 'compras' | 'ventas' | 'inventario' | 'usuarios'
 
 const moduleConfig: Record<ModuleKey, { title: string; description: string; path: string; columns: { key: string; label: string }[] }> = {
   productos: { title: 'Productos', description: 'Consulta el catálogo, los precios y los niveles de existencia.', path: '/api/products', columns: [
     { key: 'sku', label: 'SKU' }, { key: 'nombre', label: 'Producto' }, { key: 'precioCompra', label: 'Costo' }, { key: 'precioVenta', label: 'Precio venta' }, { key: 'stockActual', label: 'Existencias' }, { key: 'stockMinimo', label: 'Stock mínimo' }, { key: 'activo', label: 'Estado' },
+  ]},
+  categorias: { title: 'Categorías', description: 'Organiza y consulta las categorías del catálogo de productos.', path: '/api/categories', columns: [
+    { key: 'id', label: 'ID' }, { key: 'nombre', label: 'Nombre' }, { key: 'descripcion', label: 'Descripción' }, { key: 'activo', label: 'Estado' },
+  ]},
+  clientes: { title: 'Clientes', description: 'Consulta y administra la información de los clientes.', path: '/api/customers', columns: [
+    { key: 'identificacion', label: 'Identificación' }, { key: 'nombre', label: 'Nombre' }, { key: 'telefono', label: 'Teléfono' }, { key: 'email', label: 'Correo' }, { key: 'direccion', label: 'Dirección' }, { key: 'activo', label: 'Estado' },
   ]},
   proveedores: { title: 'Proveedores', description: 'Consulta los datos de contacto y el estado de los proveedores.', path: '/api/suppliers', columns: [
     { key: 'identificacion', label: 'Identificación' }, { key: 'nombre', label: 'Nombre' }, { key: 'contacto', label: 'Contacto' }, { key: 'telefono', label: 'Teléfono' }, { key: 'email', label: 'Correo' }, { key: 'activo', label: 'Estado' },
@@ -293,6 +301,8 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
   const [search, setSearch] = useState('')
   const canManageRows =
     (module === 'productos' && ['ADMIN', 'GERENTE', 'ALMACEN'].includes(session.role)) ||
+    (module === 'categorias' && ['ADMIN', 'GERENTE', 'ALMACEN'].includes(session.role)) ||
+    (module === 'clientes' && ['ADMIN', 'GERENTE', 'VENDEDOR'].includes(session.role)) ||
     (module === 'proveedores' && ['ADMIN', 'GERENTE'].includes(session.role))
   const canCreateUsers = module === 'usuarios' && session.role === 'ADMIN'
 
@@ -399,7 +409,28 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
 
     const editing = row !== undefined
     const product = module === 'productos'
-    if (!product && module !== 'proveedores') return
+    let productCategories: Record<string, unknown>[] = []
+
+    if (product) {
+      try {
+        const response = await api<Record<string, unknown>[]>(
+          '/api/categories', {}, session.token
+        )
+        productCategories = response.filter(item => item.activo === true)
+      } catch (e) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'No se pudieron cargar las categorías',
+          text: e instanceof Error ? e.message : 'Comprueba la conexión con el servidor.',
+        })
+        return
+      }
+    }
+
+    const category = module === 'categorias'
+    const customer = module === 'clientes'
+    const supplier = module === 'proveedores'
+    if (!product && !category && !customer && !supplier) return
 
     const fields = product
       ? [
@@ -411,15 +442,29 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
           ['stockActual', 'Stock actual', row?.stockActual, 'number', true, 10],
           ['stockMinimo', 'Stock mínimo', row?.stockMinimo, 'number', true, 10],
         ] as const
-      : [
-          ['tipoIdentificacion', 'Tipo de identificación', row?.tipoIdentificacion, 'text', false, 20],
-          ['identificacion', 'Número de identificación', row?.identificacion, 'text', true, 50],
-          ['nombre', 'Razón social / nombre', row?.nombre, 'text', true, 180],
-          ['contacto', 'Persona de contacto', row?.contacto, 'text', false, 120],
-          ['telefono', 'Teléfono', row?.telefono, 'text', false, 40],
-          ['email', 'Correo electrónico', row?.email, 'email', false, 180],
-          ['direccion', 'Dirección', row?.direccion, 'text', false, 300],
-        ] as const
+      : category
+        ? [
+            ['nombre', 'Nombre de la categoría', row?.nombre, 'text', true, 100],
+            ['descripcion', 'Descripción', row?.descripcion, 'text', false, 500],
+          ] as const
+        : customer
+          ? [
+              ['tipoIdentificacion', 'Tipo de identificación', row?.tipoIdentificacion, 'text', false, 20],
+              ['identificacion', 'Número de identificación', row?.identificacion, 'text', true, 50],
+              ['nombre', 'Nombre del cliente', row?.nombre, 'text', true, 180],
+              ['telefono', 'Teléfono', row?.telefono, 'text', false, 40],
+              ['email', 'Correo electrónico', row?.email, 'email', false, 180],
+              ['direccion', 'Dirección', row?.direccion, 'text', false, 300],
+            ] as const
+          : [
+              ['tipoIdentificacion', 'Tipo de identificación', row?.tipoIdentificacion, 'text', false, 20],
+              ['identificacion', 'Número de identificación', row?.identificacion, 'text', true, 50],
+              ['nombre', 'Razón social / nombre', row?.nombre, 'text', true, 180],
+              ['contacto', 'Persona de contacto', row?.contacto, 'text', false, 120],
+              ['telefono', 'Teléfono', row?.telefono, 'text', false, 40],
+              ['email', 'Correo electrónico', row?.email, 'email', false, 180],
+              ['direccion', 'Dirección', row?.direccion, 'text', false, 300],
+            ] as const
 
     const html = `<div class="text-start">
       ${fields.map(([key, label, value, type, required, max]) => `
@@ -430,11 +475,26 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
             ${required ? 'required' : ''}
             ${type === 'number' ? `min="0" step="${['precioCompra', 'precioVenta'].includes(key) ? '0.01' : '1'}"` : ''}>
         </div>`).join('')}
+      ${product ? `
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="erp-categoriaId">Categoría *</label>
+          <select class="form-select" id="erp-categoriaId" required>
+            <option value="">Selecciona una categoría</option>
+            ${productCategories.map(item => `
+              <option value="${escapeHtml(item.id)}"
+                ${String(item.id) === String(row?.categoriaId ?? '') ? 'selected' : ''}>
+                ${escapeHtml(item.nombre)}
+              </option>`).join('')}
+          </select>
+          ${productCategories.length === 0
+            ? '<small class="text-danger">No hay categorías activas. Crea una en el módulo Categorías.</small>'
+            : ''}
+        </div>` : ''}
       <small class="text-muted">Los campos marcados con * son obligatorios.</small>
     </div>`
 
     const result = await Swal.fire({
-      title: `${editing ? 'Editar' : 'Nuevo'} ${product ? 'producto' : 'proveedor'}`,
+      title: `${editing ? 'Editar' : 'Nuevo'} ${product ? 'producto' : category ? 'categoría' : customer ? 'cliente' : 'proveedor'}`,
       html,
       width: 620,
       showCancelButton: true,
@@ -472,6 +532,15 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
           }
           values[key] = value
         }
+        if (product) {
+          const categorySelect = document.getElementById('erp-categoriaId') as HTMLSelectElement | null
+          if (!categorySelect?.value) {
+            Swal.showValidationMessage('Selecciona una categoría para el producto.')
+            categorySelect?.focus()
+            return false
+          }
+          values.categoriaId = categorySelect.value
+        }
         return values
       },
     })
@@ -490,6 +559,21 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
         precioVenta: Number(values.precioVenta),
         stockActual: Number(values.stockActual),
         stockMinimo: Number(values.stockMinimo),
+        categoriaId: Number(values.categoriaId),
+      }
+    } else if (category) {
+      payload = {
+        nombre: values.nombre,
+        descripcion: values.descripcion || null,
+      }
+    } else if (customer) {
+      payload = {
+        tipoIdentificacion: values.tipoIdentificacion || null,
+        identificacion: values.identificacion,
+        nombre: values.nombre,
+        telefono: values.telefono || null,
+        email: values.email || null,
+        direccion: values.direccion || null,
       }
     } else {
       payload = {
@@ -515,7 +599,7 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
       await Swal.fire({
         icon: 'success',
         title: editing ? 'Cambios guardados' : 'Registro creado',
-        text: `${product ? 'Producto' : 'Proveedor'} ${editing ? 'actualizado' : 'creado'} correctamente.`,
+        text: `${product ? 'Producto' : category ? 'Categoría' : customer ? 'Cliente' : 'Proveedor'} ${editing ? 'actualizado' : 'creado'} correctamente.`,
         timer: 1800,
         showConfirmButton: false,
       })
@@ -533,15 +617,20 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
     if (module !== 'compras' && module !== 'ventas') return
     const purchase = module === 'compras'
     try {
-      const [products, suppliers] = await Promise.all([
+      const [products, suppliers, customers] = await Promise.all([
         api<Record<string, unknown>[]>('/api/products', {}, session.token),
         purchase
           ? api<Record<string, unknown>[]>('/api/suppliers', {}, session.token)
           : Promise.resolve([] as Record<string, unknown>[]),
+        !purchase
+          ? api<Record<string, unknown>[]>('/api/customers', {}, session.token)
+          : Promise.resolve([] as Record<string, unknown>[]),
       ])
       const activeSuppliers = suppliers.filter(item => item.activo !== false)
+      const activeCustomers = customers.filter(item => item.activo !== false)
       if (!products.length) throw new Error('No hay productos activos. Registra productos antes de continuar.')
       if (purchase && !activeSuppliers.length) throw new Error('No hay proveedores activos. Registra un proveedor antes de continuar.')
+      if (!purchase && !activeCustomers.length) throw new Error('No hay clientes activos. Registra un cliente antes de continuar.')
 
       const productOptions = products.map(item => {
         const label = `${String(item.sku ?? '')} — ${String(item.nombre ?? '')} (stock: ${String(item.stockActual ?? 0)})`
@@ -550,10 +639,15 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
       const supplierOptions = activeSuppliers.map(item =>
         `<option value="${Number(item.id)}">${escapeHtml(String(item.nombre ?? ''))} — ${escapeHtml(String(item.identificacion ?? ''))}</option>`
       ).join('')
+      const customerOptions = activeCustomers.map(item =>
+        `<option value="${Number(item.id)}">${escapeHtml(String(item.nombre ?? ''))} — ${escapeHtml(String(item.identificacion ?? ''))}</option>`
+      ).join('')
       const now = new Date()
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
       const html = `<div class="text-start">
-        ${purchase ? `<div class="mb-3"><label class="form-label fw-semibold" for="doc-supplier">Proveedor *</label><select id="doc-supplier" class="form-select" required><option value="">Selecciona un proveedor</option>${supplierOptions}</select></div>` : ''}
+        ${purchase
+          ? `<div class="mb-3"><label class="form-label fw-semibold" for="doc-supplier">Proveedor *</label><select id="doc-supplier" class="form-select" required><option value="">Selecciona un proveedor</option>${supplierOptions}</select></div>`
+          : `<div class="mb-3"><label class="form-label fw-semibold" for="doc-customer">Cliente *</label><select id="doc-customer" class="form-select" required><option value="">Selecciona un cliente</option>${customerOptions}</select></div>`}
         <div class="row g-3 mb-3">
           <div class="col-md-7"><label class="form-label fw-semibold" for="doc-invoice">Número de factura *</label><input id="doc-invoice" class="form-control" maxlength="100" required></div>
           <div class="col-md-5"><label class="form-label fw-semibold" for="doc-date">Fecha *</label><input id="doc-date" class="form-control" type="date" value="${today}" max="${today}" required></div>
@@ -605,10 +699,12 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
           const invoice = (document.getElementById('doc-invoice') as HTMLInputElement | null)?.value.trim() ?? ''
           const date = (document.getElementById('doc-date') as HTMLInputElement | null)?.value ?? ''
           const supplierId = (document.getElementById('doc-supplier') as HTMLSelectElement | null)?.value ?? ''
+          const customerId = (document.getElementById('doc-customer') as HTMLSelectElement | null)?.value ?? ''
           if (!invoice) { Swal.showValidationMessage('Escribe el número de factura.'); return false }
           if (invoice.length > 100) { Swal.showValidationMessage('La factura admite máximo 100 caracteres.'); return false }
           if (!date || date > today) { Swal.showValidationMessage('Selecciona una fecha válida, no futura.'); return false }
           if (purchase && !supplierId) { Swal.showValidationMessage('Selecciona un proveedor.'); return false }
+          if (!purchase && !customerId) { Swal.showValidationMessage('Selecciona un cliente.'); return false }
           const lineElements = Array.from(document.querySelectorAll<HTMLElement>('#doc-lines .doc-line'))
           const seen = new Set<number>()
           const lineas: { productoId: number; cantidad: number; costoUnitario?: number }[] = []
@@ -626,7 +722,7 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
           }
           return purchase
             ? { proveedorId: Number(supplierId), numeroFactura: invoice, fechaCompra: date, lineas }
-            : { numeroFactura: invoice, fechaVenta: date, lineas }
+            : { clienteId: Number(customerId), numeroFactura: invoice, fechaVenta: date, lineas }
         },
       })
       if (!result.isConfirmed || !result.value) return
@@ -651,8 +747,8 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
   }
 
   async function deactivateRow(row: Record<string, unknown>) {
-    const product = module === 'productos'
-    if (!product && module !== 'proveedores') return
+    const manageable = ['productos', 'categorias', 'clientes', 'proveedores'].includes(module)
+    if (!manageable) return
 
     const confirmation = await Swal.fire({
       icon: 'warning',
@@ -701,7 +797,7 @@ function DataPage({ module, session }: { module: ModuleKey; session: Session }) 
         <div className="d-flex flex-wrap gap-2">
           {canManageRows && (
             <button className="btn btn-primary btn-sm" onClick={() => void saveRow()}>
-              + Nuevo {module === 'productos' ? 'producto' : 'proveedor'}
+              + Nuevo {module === 'productos' ? 'producto' : module === 'categorias' ? 'categoría' : module === 'clientes' ? 'cliente' : 'proveedor'}
             </button>
           )}
           {canCreateUsers && (
@@ -776,7 +872,7 @@ function AuthenticatedApp({ session, onLogout }: { session: Session; onLogout: (
   return <Layout session={session} onLogout={onLogout}>
     <Routes>
       <Route path="/" element={<Dashboard session={session} />} />
-      {(['productos', 'proveedores', 'compras', 'ventas', 'inventario', 'usuarios'] as ModuleKey[]).map(module => {
+      {(['productos', 'categorias', 'clientes', 'proveedores', 'compras', 'ventas', 'inventario', 'usuarios'] as ModuleKey[]).map(module => {
         const item = navigation.find(entry => entry.path === `/${module}`)
         return <Route key={module} path={`/${module}`} element={
           item && allowed(item.path) ? <DataPage module={module} session={session} /> : <Navigate to="/" replace />

@@ -3,9 +3,12 @@ package com.erp.sales;
 import com.erp.inventory.MovimientoInventario;
 import com.erp.inventory.MovimientoInventarioRepository;
 import com.erp.inventory.TipoMovimiento;
+import com.erp.customers.Cliente;
+import com.erp.customers.ClienteRepository;
 import com.erp.products.Producto;
 import com.erp.products.ProductoRepository;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,16 +35,29 @@ public class VentaService {
     private final DetalleVentaRepository detalles;
     private final ProductoRepository productos;
     private final MovimientoInventarioRepository movimientos;
+    private final ClienteRepository clientes;
 
+    @Autowired
+    public VentaService(
+            VentaRepository ventas,
+            DetalleVentaRepository detalles,
+            ProductoRepository productos,
+            MovimientoInventarioRepository movimientos,
+            ClienteRepository clientes) {
+        this.ventas = ventas;
+        this.detalles = detalles;
+        this.productos = productos;
+        this.movimientos = movimientos;
+        this.clientes = clientes;
+    }
+
+    // Constructor compatible con pruebas y usos anteriores sin clientes.
     public VentaService(
             VentaRepository ventas,
             DetalleVentaRepository detalles,
             ProductoRepository productos,
             MovimientoInventarioRepository movimientos) {
-        this.ventas = ventas;
-        this.detalles = detalles;
-        this.productos = productos;
-        this.movimientos = movimientos;
+        this(ventas, detalles, productos, movimientos, null);
     }
 
     @Transactional(readOnly = true)
@@ -140,10 +156,14 @@ public class VentaService {
             importes.put(producto.getId(), importe);
         }
 
+        Cliente cliente = resolverCliente(request.clienteId());
+
         Venta venta;
         try {
-            venta = ventas.saveAndFlush(new Venta(
-                factura, request.fechaVenta(), total, total, usuario.trim()));
+            Venta nuevaVenta = new Venta(
+                factura, request.fechaVenta(), total, total, usuario.trim());
+            nuevaVenta.asignarCliente(cliente);
+            venta = ventas.saveAndFlush(nuevaVenta);
         } catch (DataIntegrityViolationException ex) {
             if (esFacturaDuplicada(ex)) {
                 throw new ResponseStatusException(
@@ -181,6 +201,21 @@ public class VentaService {
         }
 
         return obtener(venta.getId());
+    }
+
+    private Cliente resolverCliente(Long clienteId) {
+        if (clienteId == null) {
+            return null;
+        }
+        if (clientes == null) {
+            throw new IllegalStateException(
+                    "ClienteRepository no está configurado");
+        }
+        return clientes.findById(clienteId)
+            .filter(c -> Boolean.TRUE.equals(c.getActivo()))
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "Cliente no encontrado o inactivo: " + clienteId));
     }
 
     private boolean esFacturaDuplicada(DataIntegrityViolationException ex) {

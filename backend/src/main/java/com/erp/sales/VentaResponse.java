@@ -12,8 +12,17 @@ public record VentaResponse(
     BigDecimal total,
     String estado,
     String registradoPor,
-    List<Linea> lineas
+    List<Linea> lineas,
+    Long clienteId,
+    String clienteNombre
 ) {
+    public VentaResponse(Long id, String numeroFactura, LocalDate fechaVenta,
+            BigDecimal subtotal, BigDecimal total, String estado,
+            String registradoPor, List<Linea> lineas) {
+        this(id, numeroFactura, fechaVenta, subtotal, total, estado,
+                registradoPor, lineas, null, null);
+    }
+
     public record Linea(
         Long productoId,
         String producto,
@@ -37,7 +46,9 @@ public record VentaResponse(
                 d.getCantidad(),
                 d.getPrecioUnitario(),
                 d.getSubtotal()
-            )).toList()
+            )).toList(),
+            venta.getCliente() == null ? null : venta.getCliente().getId(),
+            venta.getCliente() == null ? null : venta.getCliente().getNombre()
         );
     }
 }

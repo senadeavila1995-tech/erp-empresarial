@@ -3,6 +3,9 @@ package com.erp.products;
 import com.erp.inventory.MovimientoInventario;
 import com.erp.inventory.MovimientoInventarioRepository;
 import com.erp.inventory.TipoMovimiento;
+import com.erp.categories.Categoria;
+import com.erp.categories.CategoriaRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,11 +19,21 @@ public class ProductoService {
 
     private final ProductoRepository repository;
     private final MovimientoInventarioRepository movimientoRepository;
+    private final CategoriaRepository categoriaRepository;
 
+    @Autowired
     public ProductoService(ProductoRepository repository,
-            MovimientoInventarioRepository movimientoRepository) {
+            MovimientoInventarioRepository movimientoRepository,
+            CategoriaRepository categoriaRepository) {
         this.repository = repository;
         this.movimientoRepository = movimientoRepository;
+        this.categoriaRepository = categoriaRepository;
+    }
+
+    // Constructor compatible con pruebas y usos anteriores sin categorías.
+    public ProductoService(ProductoRepository repository,
+            MovimientoInventarioRepository movimientoRepository) {
+        this(repository, movimientoRepository, null);
     }
 
     @Transactional(readOnly = true)
@@ -60,6 +73,7 @@ public class ProductoService {
                 request.stockMinimo()
         );
 
+        producto.asignarCategoria(resolverCategoria(request.categoriaId()));
         Producto guardado = repository.save(producto);
 
         if (guardado.getStockActual() > 0) {
@@ -96,6 +110,7 @@ public class ProductoService {
                 producto.getStockActual(),
                 request.stockMinimo()
         );
+        producto.asignarCategoria(resolverCategoria(request.categoriaId()));
 
         return ProductoResponse.from(repository.save(producto));
     }
@@ -111,6 +126,21 @@ public class ProductoService {
         return repository.findByIdAndActivoTrue(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Producto no encontrado"));
+    }
+
+    private Categoria resolverCategoria(Long categoriaId) {
+        if (categoriaId == null) {
+            return null;
+        }
+        if (categoriaRepository == null) {
+            throw new IllegalStateException(
+                    "CategoriaRepository no está configurado");
+        }
+        return categoriaRepository.findById(categoriaId)
+                .filter(c -> Boolean.TRUE.equals(c.getActivo()))
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Categoría no encontrada o inactiva: " + categoriaId));
     }
 
     private String normalizarSku(String sku) {

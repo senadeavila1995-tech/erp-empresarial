@@ -33,6 +33,10 @@ public class Venta {
     @Column(name = "creado_en", insertable = false, updatable = false)
     private LocalDateTime creadoEn;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_id")
+    private com.erp.customers.Cliente cliente;
+
     protected Venta() {}
 
     public Venta(String numeroFactura, LocalDate fechaVenta,
@@ -53,4 +57,8 @@ public class Venta {
     public String getEstado() { return estado; }
     public String getRegistradoPor() { return registradoPor; }
     public LocalDateTime getCreadoEn() { return creadoEn; }
+    public com.erp.customers.Cliente getCliente() { return cliente; }
+    public void asignarCliente(com.erp.customers.Cliente cliente) {
+        this.cliente = cliente;
+    }
 }
